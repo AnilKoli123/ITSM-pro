@@ -1,6 +1,7 @@
 import streamlit as st
 import sqlite3
 from datetime import datetime
+import pandas as pd
 
 # ---------------- DATABASE CONNECTION ----------------
 conn = sqlite3.connect("bank.db", check_same_thread=False)
@@ -65,17 +66,28 @@ def get_transactions(account_no):
     cursor.execute("SELECT type, amount, date FROM transactions WHERE account_no = ?", (account_no,))
     return cursor.fetchall()
 
+def get_customer_details(account_no):
+    cursor.execute("SELECT * FROM accounts WHERE account_no = ?", (account_no,))
+    return cursor.fetchone()
+
+def get_all_customers():
+    cursor.execute("SELECT * FROM accounts")
+    return cursor.fetchall()
+
 # ---------------- STREAMLIT UI ----------------
 
 st.set_page_config(page_title="Banking Management System", layout="wide")
 
 st.title("🏦 Banking Management System")
+
 menu = st.sidebar.selectbox("Menu", [
     "Create Account",
     "Deposit",
     "Withdraw",
     "Check Balance",
-    "Transaction History"
+    "Transaction History",
+    "Customer Details",
+    "All Customers (Admin)"
 ])
 
 # ---------------- CREATE ACCOUNT ----------------
@@ -88,7 +100,7 @@ if menu == "Create Account":
     if st.button("Create Account"):
         if name:
             acc_no = create_account(name, age, gender)
-            st.success(f"Account Created Successfully! Your Account Number is {acc_no}")
+            st.success(f"Account Created Successfully! Account Number: {acc_no}")
         else:
             st.error("Name cannot be empty!")
 
@@ -134,7 +146,37 @@ elif menu == "Transaction History":
     if st.button("View"):
         transactions = get_transactions(acc_no)
         if transactions:
-            for t in transactions:
-                st.write(f"{t[2]} | {t[0]} | ₹ {t[1]}")
+            df = pd.DataFrame(transactions, columns=["Type", "Amount", "Date"])
+            st.dataframe(df)
         else:
             st.warning("No Transactions Found!")
+
+# ---------------- CUSTOMER DETAILS ----------------
+elif menu == "Customer Details":
+    st.subheader("Customer Details")
+    acc_no = st.number_input("Enter Account Number", step=1)
+
+    if st.button("Search"):
+        customer = get_customer_details(acc_no)
+        if customer:
+            st.success("Customer Found ✅")
+            st.write("Account Number:", customer[0])
+            st.write("Name:", customer[1])
+            st.write("Age:", customer[2])
+            st.write("Gender:", customer[3])
+            st.write("Balance: ₹", customer[4])
+        else:
+            st.error("Customer Not Found!")
+
+# ---------------- ALL CUSTOMERS ----------------
+elif menu == "All Customers (Admin)":
+    st.subheader("All Registered Customers")
+    customers = get_all_customers()
+
+    if customers:
+        df = pd.DataFrame(customers, columns=[
+            "Account No", "Name", "Age", "Gender", "Balance"
+        ])
+        st.dataframe(df)
+    else:
+        st.warning("No Customers Available!")
